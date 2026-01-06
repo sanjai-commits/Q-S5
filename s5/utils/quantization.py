@@ -13,7 +13,8 @@ q_dot = quant_dot_for_dot(int8_config)
 q_had(jnp.ones(10,), jnp.ones(10,))
 ```
 """
-from aqt.jax.v2.aqt_dot_general import CalibrationMode
+# from aqt.jax.v2.aqt_dot_general import CalibrationMode
+
 from functools import partial
 from typing import Optional, Union
 import aqt.jax.v2.config as aqt_config
@@ -21,11 +22,50 @@ import jax.numpy as np
 import jax
 
 
-fully_quantized = partial(
-    aqt_config.fully_quantized,
-    calibration_mode=CalibrationMode.ALL_AXES, use_stochastic_rounding=False,
-)
+# fully_quantized = partial(
+#     aqt_config.fully_quantized,
+#     calibration_mode=CalibrationMode.CONTRACTING_AXIS, use_stochastic_rounding=False,
+# )
 
+def fully_quantized(fwd_bits, bwd_bits):
+    """
+    Return a DotGeneral config compatible with the original repo intent.
+    - If fwd_bits is an int -> call aqt_config.fully_quantized
+    - If fwd_bits is a tuple (lhs_bits, rhs_bits) -> use dot_general_make
+    After creating the cfg, set the contracting-axis calibration if available.
+    """
+    # if the user passed a tuple (lhs_bits, rhs_bits), handle it specially
+    if isinstance(fwd_bits, (tuple, list)):
+        lhs_bits, rhs_bits = fwd_bits
+        # dot_general_make mirrors lower-level constructor and accepts separate lhs/rhs bits
+        cfg = aqt_config.dot_general_make(
+            lhs_bits=lhs_bits,
+            rhs_bits=rhs_bits,
+            bwd_bits=bwd_bits,
+            use_fwd_quant=True,
+        )
+    else:
+        # fwd_bits is an int; use the user-friendly factory
+        cfg = aqt_config.fully_quantized(
+            fwd_bits=fwd_bits,
+            bwd_bits=bwd_bits,
+            use_fwd_quant=True,
+            use_stochastic_rounding=False,
+        )
+
+    # Emulate calibration_mode=CalibrationMode.CONTRACTING_AXIS from old code:
+    if hasattr(aqt_config, "set_fwd_calibration_mode") and hasattr(aqt_config, "CalibrationMode"):
+        try:
+            aqt_config.set_fwd_calibration_mode(
+                cfg,
+                lhs_calibration_mode=aqt_config.CalibrationMode.CONTRACTING_AXIS,
+                rhs_calibration_mode=aqt_config.CalibrationMode.CONTRACTING_AXIS,
+            )
+        except Exception:
+            # if anything unexpected occurs, ignore and keep defaults
+            pass
+
+    return cfg
 
 def q_dot_maybe(lhs_bits: Optional[int], rhs_bits: Optional[int], return_cfg=False):
     if lhs_bits is None and rhs_bits is None:

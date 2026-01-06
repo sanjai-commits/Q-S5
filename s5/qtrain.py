@@ -102,17 +102,26 @@ def train(args):
     Vinv = block_diag(*([Vc] * args.blocks))
 
     print("Lambda.shape={}".format(Lambda.shape))
-    print("V.shape={}".format(V.shape))
+    # print("V.shape={}".format(V.shape))
     print("Vinv.shape={}".format(Vinv.shape))
+    print("B.shape =", B.shape)             # Input vector
+    print("V.shape =", V.shape)             # Eigenvector / transform matrix
+    print("B_orig.shape =", B_orig.shape)   # Reference copy
+
+    # # Construct diagonal Lambda matrix
+    # Lambda_diag = np.diag(Lambda)
+    # # Full A matrix (for one block)
+    # A = V @ Lambda_diag @ np.linalg.inv(V)
+    # print("A.shape =", A.shape)
 
     q_config = QuantizationConfig(
-        a_precision=args.a_bits,
-        b_precision=args.b_bits,
-        c_precision=args.c_bits,
-        d_precision=args.d_bits,
-        non_ssm_precision=args.non_ssm_bits,
-        ssm_act_precision=args.ssm_act_bits,
-        non_ssm_act_precision=args.non_ssm_act_bits,
+        a_precision=8,#args.a_bits,
+        b_precision=8,#args.b_bits,
+        c_precision=8,#args.c_bits,
+        d_precision=8,#args.d_bits,
+        non_ssm_precision=8,#args.non_ssm_bits,
+        ssm_act_precision=8,#args.ssm_act_bits,
+        non_ssm_act_precision=8 #args.non_ssm_act_bits,
     )
     ssm_init_fn = init_qS5SSM(
         H=args.d_model,

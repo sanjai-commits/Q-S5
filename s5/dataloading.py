@@ -2,6 +2,12 @@ import torch
 from pathlib import Path
 import os
 from typing import Callable, Optional, TypeVar, Dict, Tuple, List, Union
+import numpy as np
+from torch.utils.data import Dataset
+from pathlib import Path
+from typing import Union
+from torch.utils.data import DataLoader
+from sklearn.utils import shuffle as sk_shuffle
 
 DEFAULT_CACHE_DIR_ROOT = Path('./cache_dir/')
 
@@ -242,6 +248,57 @@ def create_lra_aan_classification_dataset(cache_dir: Union[str, Path] = DEFAULT_
 
 	return trn_loader, val_loader, tst_loader, aux_loaders, N_CLASSES, SEQ_LENGTH, IN_DIM, TRAIN_SIZE
 
+class NPZClassificationDataset(Dataset):
+	def __init__(self, data, labels):
+		self.data = data
+		self.labels = labels
+
+	def __len__(self):
+		return len(self.data)
+
+	def __getitem__(self, idx):
+		return self.data[idx], self.labels[idx]
+
+def custom_loader(cache_dir: Union[str, Path] = DEFAULT_CACHE_DIR_ROOT,
+				  bsz: int = 50,
+				  seed: int = 42) -> ReturnType:
+	
+	print("Generating Custom Dataset!!!")
+	npz_path_train = f'./Q-S5/raw_datasets/mfcc_train.npz'
+	npz_path_test = f'./Q-S5/raw_datasets/mfcc_test.npz'
+	npz_path_val = f'./Q-S5/raw_datasets/mfcc_val.npz'
+	import os
+
+	data_train = np.load(npz_path_train)
+	data_test = np.load(npz_path_test)
+	data_val = np.load(npz_path_val)
+
+	X_train, y_train = data_train['fingerprints'], data_train['ground_truth']
+	X_val, y_val = data_val['fingerprints'], data_val['ground_truth']
+	X_test, y_test = data_test['fingerprints'], data_test['ground_truth']
+
+	# Shuffle training data
+	X_train, y_train = sk_shuffle(X_train, y_train, random_state=seed)
+
+	# Wrap in Dataset class
+	train_dataset = NPZClassificationDataset(X_train, y_train)
+	val_dataset = NPZClassificationDataset(X_val, y_val)
+	test_dataset = NPZClassificationDataset(X_test, y_test)
+
+	# Create DataLoaders
+	#  make_data_loader(dataset_obj.dataset_train, dataset_obj, seed=seed, batch_size=bsz)
+	trn_loader = torch.utils.data.DataLoader(train_dataset, batch_size=bsz, shuffle=True)
+	val_loader = torch.utils.data.DataLoader(val_dataset, batch_size=bsz, shuffle=False)
+	tst_loader = torch.utils.data.DataLoader(test_dataset, batch_size=bsz, shuffle=False)
+
+	# Meta info
+	N_CLASSES = len(set(y_train))
+	SEQ_LENGTH = X_train.shape[1]
+	IN_DIM = X_train.shape[2] if X_train.ndim > 2 else 1
+	TRAIN_SIZE = len(train_dataset)
+
+	aux_loaders = {}
+	return trn_loader, val_loader, tst_loader, aux_loaders, N_CLASSES, SEQ_LENGTH, IN_DIM, TRAIN_SIZE
 
 def create_speechcommands35_classification_dataset(cache_dir: Union[str, Path] = DEFAULT_CACHE_DIR_ROOT,
 												   bsz: int = 50,
@@ -403,4 +460,5 @@ Datasets = {
 
 	# Speech.
 	"speech35-classification": create_speechcommands35_classification_dataset,
+	"custom-loader": custom_loader,
 }

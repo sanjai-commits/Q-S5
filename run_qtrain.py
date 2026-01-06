@@ -1,4 +1,6 @@
 import argparse
+import sys, os
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 from s5.utils.util import str2bool
 from s5.qtrain import train
 from s5.dataloading import Datasets

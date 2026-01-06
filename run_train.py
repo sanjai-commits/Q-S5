@@ -18,6 +18,8 @@ if __name__ == "__main__":
 	parser.add_argument("--dataset", type=str, choices=Datasets.keys(),
 						default='mnist-classification',
 						help="dataset name")
+	parser.add_argument('--npz_path', type=str, default=None,
+                    help='Path to .npz file containing fingerprints and ground_truth')
 
 	# Model Parameters
 	parser.add_argument("--n_layers", type=int, default=6,
